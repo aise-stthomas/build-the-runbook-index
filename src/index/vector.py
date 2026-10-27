@@ -62,8 +62,11 @@ class QueryCache:
 
     def put(self, text: str, vector: list[float]) -> None:
         self.rows[text] = vector
-        with open(self.path, "a") as f:
-            f.write(json.dumps({"text": text, "vector": vector}) + "\n")
+        try:
+            with open(self.path, "a") as f:
+                f.write(json.dumps({"text": text, "vector": vector}) + "\n")
+        except OSError:
+            pass   # a read-only package (Lambda): the cache lives in memory for this sandbox only
 
 
 def embed_query(text: str, cache: QueryCache | None = None, model: str = DEFAULT_EMBEDDING_MODEL) -> list[float]:
