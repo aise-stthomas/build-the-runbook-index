@@ -1,0 +1,9 @@
+{
+  "built_at": "2026-10-27T04:19:55Z",
+  "runbooks": 24,
+  "chunks": 89,
+  "max_words": 150,
+  "chunks_hash": "4171c59fe48b",
+  "embedding_model": "gemini-embedding-001",
+  "dimensions": 768
+}

@@ -1,0 +1,15 @@
+[project]
+name = "build-the-runbook-index"
+version = "0.1.0"
+description = "AI Systems Engineering lab: a labelled QA set, a lexical and a vector index over runbooks, a retrieval-grounded chat service, and a judge validated against your own labels."
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115",
+    "google-genai>=1.0",
+    "mangum>=0.17",
+    "python-dotenv>=1.0",
+    "uvicorn>=0.30",
+]
+
+[tool.uv]
+package = false
