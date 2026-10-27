@@ -14,6 +14,8 @@ import math
 import re
 from collections import Counter, defaultdict
 
+from src.tracing import traced
+
 STOP = set("a an the of to in on for and or is are was were be been it this that with as at by from "
            "do does did not no yes if then than so into your you we our its their what how when which who".split())
 _TOKEN = re.compile(r"[a-z0-9]+(?:[-_.][a-z0-9]+)*")   # keeps err-4032, x-lab-token, run_batch.py, us-east-1 whole
@@ -54,6 +56,7 @@ class LexicalIndex:
         n_t = len(self.postings.get(term, {}))
         return math.log((self.n_chunks - n_t + 0.5) / (n_t + 0.5) + 1)
 
+    @traced("lexical")
     def search(self, question: str, k: int = 10) -> list[tuple[str, float]]:
         avg = sum(self.length.values()) / max(1, self.n_chunks)
         scores: dict[str, float] = defaultdict(float)

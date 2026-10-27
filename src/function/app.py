@@ -28,6 +28,10 @@ from src.assistant.answer import DEFAULT_MODEL, answer, question_log_line  # noq
 from src.index.store import Index  # noqa: E402
 
 INDEX = Index()                                        # the cold start includes this
+if os.environ.get("GEMINI_API_KEY") and os.environ.get("PROVIDER", "gemini") != "fake":
+    from src.system.client import get_sdk
+    get_sdk()                                          # and this: the SDK's imports and the client, about 3.5 s on Lambda,
+                                                       # paid once at start-up instead of inside the first request
 INIT_MS = round((time.perf_counter() - _T0) * 1000)
 BUILD = os.environ.get("BUILD", "local")
 INVOCATIONS = 0

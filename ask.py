@@ -5,6 +5,7 @@
     uv run ask.py "..." --k 3 --retriever lexical
     uv run ask.py "..." --floor 0.6                 # stop before generation when nothing is similar enough
     uv run ask.py "..." --show-context              # print exactly what the model received
+    uv run ask.py "..." --trace                     # the request as a tree of spans: where the time went
     PROVIDER=fake uv run ask.py "..."               # no key: retrieval runs, the model is faked
 """
 from __future__ import annotations
@@ -16,7 +17,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from dotenv import load_dotenv  # noqa: E402
-from src.assistant.answer import answer, build_context, question_log_line  # noqa: E402
+from src.assistant.answer import answer, build_context, question_log_line, render_trace  # noqa: E402
 from src.index.store import Index  # noqa: E402
 
 load_dotenv()
@@ -29,6 +30,7 @@ def main() -> None:
     ap.add_argument("--retriever", default="hybrid", choices=["lexical", "vector", "hybrid"])
     ap.add_argument("--floor", type=float, default=0.0)
     ap.add_argument("--show-context", action="store_true")
+    ap.add_argument("--trace", action="store_true", help="print the request as a tree of spans")
     ap.add_argument("--json", action="store_true")
     a = ap.parse_args()
     index = Index()
@@ -52,8 +54,11 @@ def main() -> None:
         print("\nsources:")
         for s in rec["sources"]:
             print(f"  [{s['n']}] {s['id']} · {s['title']} › {s['heading']} · as of {s['as_of']} · {s['file']}")
-    print(f"\n{rec['generation_ms']} ms generation · model {rec['model']} · index {rec['index_version']}")
-    print(question_log_line(rec))
+    print(f"\n{rec['generation_ms']} ms generation · {rec['total_ms']} ms in all · model {rec['model']} · index {rec['index_version']}")
+    if a.trace:
+        print("\n" + render_trace(rec))
+    else:
+        print(question_log_line(rec))
 
 
 if __name__ == "__main__":

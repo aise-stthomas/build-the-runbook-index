@@ -20,6 +20,8 @@ import logging
 import math
 import os
 
+from src.tracing import span, traced
+
 logging.getLogger("google_genai.models").setLevel(logging.ERROR)
 DEFAULT_EMBEDDING_MODEL = os.environ.get("EMBEDDING_MODEL", "gemini-embedding-001")
 DIMENSIONS = 768
@@ -32,11 +34,10 @@ def _normalize(v: list[float]) -> list[float]:
 
 def embed(texts: list[str], task: str, model: str = DEFAULT_EMBEDDING_MODEL, batch: int = 50) -> list[list[float]]:
     """task: RETRIEVAL_DOCUMENT for chunks, RETRIEVAL_QUERY for questions. Batched; retried on 429."""
-    from google import genai
-    from google.genai import types
+    from src.system.client import get_sdk
     from src.system.plumbing import with_retries
 
-    client = genai.Client()  # reads GEMINI_API_KEY
+    client, types = get_sdk()
 
     def one_batch(prompt, temperature, model, system=None):
         resp = client.models.embed_content(model=model, contents=prompt,
@@ -46,7 +47,8 @@ def embed(texts: list[str], task: str, model: str = DEFAULT_EMBEDDING_MODEL, bat
     call = with_retries(one_batch)
     out = []
     for i in range(0, len(texts), batch):
-        out.extend(_normalize(v) for v in call(texts[i:i + batch], None, model))
+        with span("embed", texts=len(texts[i:i + batch]), model=model):
+            out.extend(_normalize(v) for v in call(texts[i:i + batch], None, model))
     return out
 
 
@@ -70,18 +72,22 @@ class QueryCache:
 
 
 def embed_query(text: str, cache: QueryCache | None = None, model: str = DEFAULT_EMBEDDING_MODEL) -> list[float]:
-    if cache and (v := cache.get(text)) is not None:
+    with span("embed_question") as sp:
+        if cache and (v := cache.get(text)) is not None:
+            if sp: sp["cached"] = True
+            return v
+        v = embed([text], "RETRIEVAL_QUERY", model)[0]
+        if sp: sp["cached"] = False
+        if cache:
+            cache.put(text, v)
         return v
-    v = embed([text], "RETRIEVAL_QUERY", model)[0]
-    if cache:
-        cache.put(text, v)
-    return v
 
 
 def similarity(a: list[float], b: list[float]) -> float:
     return sum(x * y for x, y in zip(a, b))   # both unit length: the cosine
 
 
+@traced("vector_scan")
 def search(qvec: list[float], vectors: dict[str, list[float]], k: int = 10) -> list[tuple[str, float]]:
     """Exact nearest neighbours: score every chunk, keep the top k."""
     scored = [(cid, similarity(qvec, v)) for cid, v in vectors.items()]

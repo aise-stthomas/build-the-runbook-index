@@ -11,7 +11,7 @@ uv sync                          # Python 3.12, uv: https://docs.astral.sh/uv/
 cp .env.example .env             # paste your Gemini key
 uv run build_index.py            # PART 2: chunk → lexical index → embeddings → manifest
 uv run measure_recall.py         # PART 3: recall at 3 and 5, per retriever, per slice
-uv run ask.py "How do I rotate the model key?"      # PART 4: the assistant, from the terminal
+uv run ask.py "How do I rotate the model key?"      # PART 4: the assistant, from the terminal (--trace for the spans)
 uv run src/function/local_server.py                 # PART 4: the same, as a service with Swagger
 ```
 
@@ -28,12 +28,13 @@ The three things that are easy to confuse, kept apart on disk:
 | `data/runbooks/` | the corpus: 24 runbooks for the triage system you have deployed in the earlier labs |
 | `data/answers/` | what you record in Part 6: the answers, your labels, the judge's verdicts; `seeded.jsonl` are hand-written answers, some wrong on purpose |
 | `src/index/` | `chunk.py` (a runbook → chunks with metadata), `lexical.py` (the inverted index and BM25), `vector.py` (the embedding call, the exact nearest-neighbour scan), `hybrid.py` (reciprocal rank fusion), `store.py` (loading it all) |
-| `src/assistant/answer.py` | the request path: retrieve → context → generate → check → cite, and the question-log line |
+| `src/assistant/answer.py` | the request path: retrieve → context → generate → check → cite, as one trace; the question-log line |
+| `src/tracing.py` | the trace: a decorator per stage, a context variable for the current trace, a renderer for the tree |
 | `src/harness/` | `qa.py` (the QA set), `recall.py` (recall at k, intervals), `judge.py` (the judge and its rubric), `agreement.py` (the four counts, sensitivity, specificity, κ, the correction) |
 | `src/function/` | `app.py` (the service: `GET /`, `POST /chat`, `/docs`), `handler.py` (Lambda), `local_server.py` |
 | `build_index.py` `measure_recall.py` `ask.py` | Parts 2, 3, 4 |
 | `record_answers.py` `label.py` `judge.py` `validate_judge.py` | Part 6 |
-| `deploy.sh` `call.sh` `teardown.sh` | Part 5: the function and the HTTP API in the Learner Lab |
+| `deploy.sh` `call.sh` `traces.py` `teardown.sh` | Part 5: the function and the HTTP API in the Learner Lab; the traces read back from its log |
 
 ## What you need
 

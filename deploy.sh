@@ -85,6 +85,12 @@ URL="$(aws apigatewayv2 get-api --api-id "$ID" --query ApiEndpoint --output text
 aws lambda add-permission --function-name "$FN" --statement-id "apigw-${ID}" --action lambda:InvokeFunction \
   --principal apigateway.amazonaws.com --source-arn "arn:aws:execute-api:us-east-1:${ACCOUNT}:${ID}/*" >/dev/null 2>&1 || true
 
+# a new API answers "Not Found" for a few seconds while it propagates: wait for the health check
+for i in $(seq 1 15); do
+  curl -s -o /dev/null -w '%{http_code}' "${URL}/" 2>/dev/null | grep -q 200 && break
+  sleep 2
+done
+
 if grep -q '^LAB_URL=' .env; then
   sed -i.bak "s|^LAB_URL=.*|LAB_URL=${URL}/chat|" .env && rm -f .env.bak
 else

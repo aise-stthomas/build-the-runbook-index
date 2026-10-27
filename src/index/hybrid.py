@@ -5,7 +5,10 @@ cosine) are never on the same scale, so the merge uses the two orders and nothin
 """
 from __future__ import annotations
 
+from src.tracing import traced
 
+
+@traced("fuse")
 def rrf(lists: list[list[tuple[str, float]]], k: int = 10, c: int = 60) -> list[tuple[str, float]]:
     fused: dict[str, float] = {}
     for ranked in lists:

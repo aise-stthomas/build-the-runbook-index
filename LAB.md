@@ -129,6 +129,20 @@ context from a template, generate, **check in code** that every `[n]` is a passa
 model was given (a draft that fails is not shown; the passages are), and build the
 sources from the chunk ids. The model never writes a link.
 
+Every request is also a **trace**: each stage is a span with a start and a duration, and
+the spans travel with the answer and with the log line.
+
+```bash
+uv run ask.py "Why is the queue backing up?" --trace
+```
+
+Read the tree: the question's embedding is a model call (`cached=False` the first time,
+`cached=True` after), the scan over 89 vectors is a few milliseconds, generation is most
+of the time, and `client_init` appears once per process, inside whichever model call came
+first. The mechanism is `src/tracing.py`, forty lines: a decorator on each stage and a
+context variable that holds the current trace. The platform's trace service is not
+available in the Learner Lab; this is the same idea, written by the function.
+
 Now as a service:
 
 ```bash
@@ -157,6 +171,16 @@ loaded at import, so it is part of the cold start. `GET /` reports how long that
 ```bash
 aws logs tail /aws/lambda/runbook-assistant --follow --region us-east-1
 ```
+
+Then read the traces back from the log, one tree per call:
+
+```bash
+uv run traces.py --since 10m
+```
+
+The first call in a new sandbox carries `client_init` and a slow first model call; the
+rest do not. Compare with the platform's own `Init Duration` on the `REPORT` line: the
+platform measures the start-up it can see, and the function measures the rest.
 
 Swap URLs with a classmate and ask theirs a question from the QA set.
 
@@ -228,7 +252,7 @@ is where it shows. Rebuild at the default before Part 5 or 6.
 
 - the two recall tables, and one sentence on which retriever wins which slice
 - the floor you chose and its two error counts
-- one answer with its sources from your deployed service, and the `QUESTION` log line for it
+- one answer with its sources from your deployed service, and its trace from `traces.py`
 - the four counts, sensitivity and specificity for the judge against your labels, and one disagreement you read
 
 ## Teardown

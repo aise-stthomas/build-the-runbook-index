@@ -19,6 +19,7 @@ import time
 from dotenv import load_dotenv
 
 from src.index.store import Index
+from src.tracing import render, trace, traced
 
 load_dotenv()
 logging.getLogger("google_genai.models").setLevel(logging.ERROR)
@@ -34,6 +35,7 @@ Rules:
 5. At most four sentences."""
 
 
+@traced("assemble")
 def build_context(question: str, passages: list[dict]) -> tuple[str, str]:
     """(system instruction, user text): what the model receives, and nothing else."""
     lines = []
@@ -43,15 +45,15 @@ def build_context(question: str, passages: list[dict]) -> tuple[str, str]:
     return INSTRUCTIONS, user
 
 
+@traced("generate")
 def generate(system: str, user: str, model: str = DEFAULT_MODEL, provider: str | None = None) -> str:
     provider = provider or os.environ.get("PROVIDER", "gemini")
     if provider == "fake":
         return f"(fake provider) The first passage says something about this [1]."
-    from google import genai
-    from google.genai import types
+    from src.system.client import get_sdk
     from src.system.plumbing import with_retries
 
-    client = genai.Client()
+    client, types = get_sdk()
 
     def sample(prompt, temperature, model, system=None):
         cfg = types.GenerateContentConfig(system_instruction=system, temperature=temperature, max_output_tokens=400)
@@ -63,6 +65,7 @@ def generate(system: str, user: str, model: str = DEFAULT_MODEL, provider: str |
 _CITE = re.compile(r"\[(\d+)\]")
 
 
+@traced("check")
 def check(draft: str, n_passages: int) -> dict:
     """The code checks: NOT_FOUND, or a draft whose every citation is a passage it was given."""
     if NOT_FOUND in draft:   # the contract says NOT_FOUND alone; a draft that says it anywhere is a not-found
@@ -82,6 +85,15 @@ def check(draft: str, n_passages: int) -> dict:
 
 def answer(question: str, index: Index, k: int = 5, floor: float = 0.0, retriever: str = "hybrid",
            model: str = DEFAULT_MODEL, provider: str | None = None) -> dict:
+    """The request path, as one trace: every stage is a span, and the spans go out with the answer."""
+    with trace("chat") as tr:
+        out = _answer(question, index, k, floor, retriever, model, provider)
+    out["spans"] = tr.rows()
+    out["total_ms"] = tr.total_ms
+    return out
+
+
+def _answer(question: str, index: Index, k: int, floor: float, retriever: str, model: str, provider: str | None) -> dict:
     t0 = time.perf_counter()
     hits = index.search(question, retriever, k)
     passages = [index.chunks[cid] for cid, _ in hits]
@@ -120,5 +132,10 @@ def question_log_line(rec: dict) -> str:
     """One line per question, what the model saw and said: the question log."""
     keep = {k: rec.get(k) for k in ("question", "retriever", "k", "retrieved", "best_similarity", "context_sha",
                                    "context_tokens", "answer", "not_found", "stopped_by", "citations", "check",
-                                   "fell_back", "model", "embedding_model", "index_version", "retrieval_ms", "generation_ms")}
+                                   "fell_back", "model", "embedding_model", "index_version", "retrieval_ms", "generation_ms",
+                                   "total_ms", "spans")}
     return "QUESTION " + json.dumps(keep)
+
+
+def render_trace(rec: dict) -> str:
+    return render(rec.get("spans", []), rec.get("total_ms"))
