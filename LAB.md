@@ -245,6 +245,6 @@ is where it shows. Rebuild at the default before Part 5 or 6.
 | the answer fell back: *no citations in the draft* | the model ignored the instructions once | run it again; count it, it is a rate |
 | `deploy.sh`: `sts get-caller-identity failed` | the Learner Lab session expired | start it, paste fresh credentials |
 | `POST /chat` answers `401` | the token | `LAB_TOKEN` in `.env`; a classmate's token for theirs |
-| the first call to the deployed service takes seconds | the cold start now includes loading the index | call again; `init_ms` on `GET /` says how long |
+| the first call to the deployed service takes seconds | the cold start now includes loading the index; and the first question a sandbox has not seen pays the embedding client's start-up in `retrieval_ms` | call again; `init_ms` on `GET /` says how long the load took |
 | `validate_judge.py`: *no labels yet* | Step 2 was skipped | `uv run label.py` |
 | sensitivity is `n/a` | you marked nothing as ungrounded | check the seeded answers again; some are wrong on purpose |
